@@ -1,4 +1,3 @@
-
 %%writefile search_utils.py
 
 import json
@@ -15,7 +14,7 @@ print("⏳ Loading Sentence Transformer model...")
 model = SentenceTransformer('all-MiniLM-L6-v2')
 print("✅ Model loaded.\n")
 
-# --- ROBUST DATA LOADING (Auto-fetches if JSON is missing) ---
+# --- ROBUST DATA LOADING ---
 def load_or_fetch_pubmed_data(
     filename: str = "pubmed_abstracts.json",
     query: str = "(single-cell OR spatial transcriptomics) AND (human brain) AND (novel cell type)",
@@ -37,41 +36,50 @@ def load_or_fetch_pubmed_data(
     search_results = Entrez.read(search_handle)
     search_handle.close()
     pmids = search_results.get("IdList", [])
-
-    if not pmids: return []
+    
+    if not pmids: 
+        print("❌ No PMIDs found.")
+        return []
 
     fetch_handle = Entrez.efetch(db="pubmed", id=pmids, rettype="abstract", retmode="xml")
     records = Entrez.read(fetch_handle)
     fetch_handle.close()
-
+    
     extracted_data = []
     articles_list = records.get('PubmedArticleSet', {}).get('PubmedArticle', [])
-    if isinstance(articles_list, dict): articles_list = [articles_list]
-
+    if isinstance(articles_list, dict): 
+        articles_list = [articles_list]
+        
     for article in articles_list:
         try:
             pmid_node = article["MedlineCitation"]["PMID"]
             pmid = pmid_node.get("text", "") if isinstance(pmid_node, dict) else str(pmid_node)
+            
             title_raw = article["MedlineCitation"]["Article"]["ArticleTitle"]
             title = title_raw.get("content", "No Title") if isinstance(title_raw, dict) else title_raw
+            
             abstract_node = article["MedlineCitation"]["Article"].get("Abstract", {})
             abstract_text_raw = abstract_node.get("AbstractText", [])
-
-            if isinstance(abstract_text_raw, str): abstract_text = abstract_text_raw
+            
+            if isinstance(abstract_text_raw, str): 
+                abstract_text = abstract_text_raw
             elif isinstance(abstract_text_raw, list):
                 abstract_parts = [part.get('content', '') if isinstance(part, dict) else str(part) for part in abstract_text_raw]
                 abstract_text = " ".join(abstract_parts).strip()
-            else: abstract_text = ""
+            else: 
+                abstract_text = ""
+                
             extracted_data.append({"pmid": pmid, "title": title, "abstract": abstract_text})
-        except KeyError: continue
-
+        except KeyError: 
+            continue
+            
     if extracted_data:
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(extracted_data, f, indent=2)
         print(f"✅ Successfully fetched and saved {len(extracted_data)} documents!")
     return extracted_data
 
-# --- SEARCH FUNCTIONS ---
+# --- BM25 SEARCH ---
 def build_bm25_index(documents: List[Dict[str, Any]]) -> BM25Okapi:
     tokenized_corpus = [doc["abstract"].lower().split() for doc in documents]
     return BM25Okapi(tokenized_corpus)
@@ -82,10 +90,14 @@ def search_bm25(bm25_index: BM25Okapi, documents: List[Dict[str, Any]], query: s
     ranked_results = sorted(zip(scores, documents), key=lambda x: x[0], reverse=True)
     return [{"score": float(score), "doc": doc} for score, doc in ranked_results[:top_k]]
 
+# --- VECTOR SEARCH (Your Day 3 Code, now modularized!) ---
 def generate_embeddings(texts: List[str]) -> np.ndarray:
+    """Converts a list of text strings into vector embeddings."""
+    print(f"🧠 Generating embeddings for {len(texts)} texts...")
     return model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
 
 def search_vectors(query: str, doc_embeddings: np.ndarray, documents: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
+    """Calculates cosine similarity and returns top_k semantically similar documents."""
     query_embedding = model.encode([query], normalize_embeddings=True)
     similarities = np.dot(doc_embeddings, query_embedding.T).flatten()
     top_indices = np.argsort(similarities)[::-1][:top_k]
