@@ -1,5 +1,4 @@
 
-
 import json
 import os
 import numpy as np
@@ -17,7 +16,7 @@ print("✅ Model loaded.\n")
 # --- ROBUST DATA LOADING ---
 def load_or_fetch_pubmed_data(
     filename: str = "pubmed_abstracts.json",
-    query: str = "(single-cell OR spatial transcriptomics) AND (human brain) AND (novel cell type)",
+    query: str = '("single-cell" OR "spatial transcriptomics") AND "human brain"',
     max_records: int = 10
 ) -> List[Dict[str, Any]]:
     documents = []
@@ -46,6 +45,7 @@ def load_or_fetch_pubmed_data(
     fetch_handle.close()
     
     extracted_data = []
+    # Handle both single article (dict) and multiple articles (list)
     articles_list = records.get('PubmedArticleSet', {}).get('PubmedArticle', [])
     if isinstance(articles_list, dict): 
         articles_list = [articles_list]
@@ -67,10 +67,12 @@ def load_or_fetch_pubmed_data(
                 abstract_parts = [part.get('content', '') if isinstance(part, dict) else str(part) for part in abstract_text_raw]
                 abstract_text = " ".join(abstract_parts).strip()
             else: 
-                abstract_text = ""
+                abstract_text = "No abstract available"
                 
             extracted_data.append({"pmid": pmid, "title": title, "abstract": abstract_text})
-        except KeyError: 
+        except KeyError as e: 
+            # Skip malformed records but print a warning for debugging
+            print(f"⚠️ Skipping record due to missing key: {e}")
             continue
             
     if extracted_data:
@@ -90,14 +92,12 @@ def search_bm25(bm25_index: BM25Okapi, documents: List[Dict[str, Any]], query: s
     ranked_results = sorted(zip(scores, documents), key=lambda x: x[0], reverse=True)
     return [{"score": float(score), "doc": doc} for score, doc in ranked_results[:top_k]]
 
-# --- VECTOR SEARCH (Your Day 3 Code, now modularized!) ---
+# --- VECTOR SEARCH ---
 def generate_embeddings(texts: List[str]) -> np.ndarray:
-    """Converts a list of text strings into vector embeddings."""
     print(f"🧠 Generating embeddings for {len(texts)} texts...")
     return model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
 
 def search_vectors(query: str, doc_embeddings: np.ndarray, documents: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
-    """Calculates cosine similarity and returns top_k semantically similar documents."""
     query_embedding = model.encode([query], normalize_embeddings=True)
     similarities = np.dot(doc_embeddings, query_embedding.T).flatten()
     top_indices = np.argsort(similarities)[::-1][:top_k]
