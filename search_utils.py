@@ -6,20 +6,17 @@ from Bio import Entrez
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
-# --- GLOBAL SETUP ---
 Entrez.email = "sesimboyle@gmail.com"
 print("Loading Sentence Transformer model...")
 model = SentenceTransformer('all-MiniLM-L6-v2')
 print("Model loaded.\n")
 
-# --- DATA LOADING (YOUR EXACT DAY 1 LOGIC) ---
+
 def load_or_fetch_pubmed_data(
     filename: str = "pubmed_abstracts.json",
     query: str = "(single-cell OR spatial transcriptomics) AND (human brain) AND (novel cell type)",
     max_records: int = 10
 ) -> List[Dict[str, Any]]:
-    
-    # 1. Try to load existing file first
     if os.path.exists(filename):
         try:
             with open(filename, "r", encoding="utf-8") as f:
@@ -30,7 +27,6 @@ def load_or_fetch_pubmed_data(
         except Exception as e:
             print(f"Error reading file: {e}. Will re-fetch.")
 
-    # 2. Fetch from PubMed
     print(f"Searching PubMed for: {query}\n")
     search_handle = Entrez.esearch(db="pubmed", term=query, retmax=max_records, sort="relevance")
     search_results = Entrez.read(search_handle)
@@ -49,7 +45,7 @@ def load_or_fetch_pubmed_data(
 
     extracted_data = []
     articles_list = []
-    
+
     if 'PubmedArticleSet' in records and 'PubmedArticle' in records['PubmedArticleSet']:
         articles_list = records['PubmedArticleSet']['PubmedArticle']
         if isinstance(articles_list, dict):
@@ -61,16 +57,10 @@ def load_or_fetch_pubmed_data(
 
     for article in articles_list:
         pmid_node = article["MedlineCitation"]["PMID"]
-        if isinstance(pmid_node, dict):
-            pmid = pmid_node.get("text", "")
-        else:
-            pmid = str(pmid_node)
+        pmid = pmid_node.get("text", "") if isinstance(pmid_node, dict) else str(pmid_node)
 
         title_raw = article["MedlineCitation"]["Article"]["ArticleTitle"]
-        if isinstance(title_raw, dict):
-            title = title_raw.get("content", "No Title")
-        else:
-            title = title_raw
+        title = title_raw.get("content", "No Title") if isinstance(title_raw, dict) else title_raw
 
         abstract_node = article["MedlineCitation"]["Article"].get("Abstract", {})
         abstract_text_raw = abstract_node.get("AbstractText", [])
@@ -88,23 +78,20 @@ def load_or_fetch_pubmed_data(
         else:
             abstract_text = ""
 
-        extracted_data.append({
-            "pmid": pmid,
-            "title": title,
-            "abstract": abstract_text
-        })
+        extracted_data.append({"pmid": pmid, "title": title, "abstract": abstract_text})
 
     if extracted_data:
         with open(filename, "w", encoding="utf-8") as f:
             json.dump(extracted_data, f, indent=2)
         print(f"Success! Saved {len(extracted_data)} abstracts to '{filename}'")
-        
+
     return extracted_data
 
-# --- BM25 SEARCH ---
+
 def build_bm25_index(documents: List[Dict[str, Any]]) -> BM25Okapi:
     tokenized_corpus = [doc["abstract"].lower().split() for doc in documents]
     return BM25Okapi(tokenized_corpus)
+
 
 def search_bm25(bm25_index: BM25Okapi, documents: List[Dict[str, Any]], query: str, top_k: int = 5) -> List[Dict[str, Any]]:
     tokenized_query = query.lower().split()
@@ -112,10 +99,11 @@ def search_bm25(bm25_index: BM25Okapi, documents: List[Dict[str, Any]], query: s
     ranked_results = sorted(zip(scores, documents), key=lambda x: x[0], reverse=True)
     return [{"score": float(score), "doc": doc} for score, doc in ranked_results[:top_k]]
 
-# --- VECTOR SEARCH ---
+
 def generate_embeddings(texts: List[str]) -> np.ndarray:
     print(f"Generating embeddings for {len(texts)} texts...")
     return model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
+
 
 def search_vectors(query: str, doc_embeddings: np.ndarray, documents: List[Dict[str, Any]], top_k: int = 5) -> List[Dict[str, Any]]:
     query_embedding = model.encode([query], normalize_embeddings=True)
