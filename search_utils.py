@@ -161,3 +161,56 @@ def search_vectors(
         {"score": float(similarities[i]), "doc": documents[int(i)]}
         for i in top_indices
     ]
+def reciprocal_rank_fusion(
+    bm25_results: list[dict],
+    vector_results: list[dict],
+    top_k: int = 10,
+    rank_constant: int = 60,
+) -> list[dict]:
+    """Fuse two ranked result lists using each paper's PMID as its ID."""
+    if rank_constant < 1:
+        raise ValueError("rank_constant must be at least 1.")
+
+    if top_k < 1:
+        raise ValueError("top_k must be at least 1.")
+
+    combined: dict[str, dict] = {}
+
+    for method, results in (
+        ("bm25", bm25_results),
+        ("vector", vector_results),
+    ):
+        seen_in_this_list: set[str] = set()
+
+        for rank, result in enumerate(results, start=1):
+            doc = result["doc"]
+            pmid = str(doc.get("pmid", "")).strip()
+
+            if not pmid:
+                raise ValueError("Every document needs a PMID for RRF.")
+
+            if pmid in seen_in_this_list:
+                raise ValueError(
+                    f"PMID {pmid} occurs twice in the {method} results."
+                )
+
+            seen_in_this_list.add(pmid)
+
+            if pmid not in combined:
+                combined[pmid] = {
+                    "pmid": pmid,
+                    "doc": doc,
+                    "rrf_score": 0.0,
+                    "bm25_rank": None,
+                    "vector_rank": None,
+                }
+
+            combined[pmid]["rrf_score"] += 1.0 / (
+                rank_constant + rank
+            )
+            combined[pmid][f"{method}_rank"] = rank
+
+    return sorted(
+        combined.values(),
+        key=lambda item: (-item["rrf_score"], item["pmid"]),
+    )[:top_k]
