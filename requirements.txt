@@ -1,5 +1,6 @@
-%%writefile requirements.txt
-biopython
-rank-bm25
-sentence-transformers
-numpy
+biopython==1.88
+rank-bm25==0.2.2
+# Colab preinstalls these two; ranges avoid replacing its torch/transformers builds.
+# Once a run works, record the exact versions with `pip show` and pin them here.
+sentence-transformers>=3.0,<7
+numpy>=1.26,<3
