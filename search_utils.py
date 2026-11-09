@@ -1,6 +1,7 @@
 """Reusable PubMed, BM25 and vector-search functions."""
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -10,6 +11,111 @@ import numpy as np
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 _model = None
+
+
+def fetch_pubmed(
+    query: str,
+    max_records: int = 10,
+    email: str | None = None,
+    api_key: str | None = None,
+) -> list[dict[str, str]]:
+    """Search PubMed and return the PMID, title and abstract of each hit.
+
+    NCBI requires a contact email: pass ``email`` or set NCBI_EMAIL.
+    An optional API key (``api_key`` or NCBI_API_KEY) raises the rate
+    limit from 3 to 10 requests per second.
+    """
+    from Bio import Entrez
+
+    if not query.strip():
+        raise ValueError("Query cannot be empty.")
+
+    if max_records < 1:
+        raise ValueError("max_records must be at least 1.")
+
+    email = (email or os.environ.get("NCBI_EMAIL", "")).strip()
+    if not email:
+        raise ValueError(
+            "NCBI requires a contact email. Set the NCBI_EMAIL environment "
+            "variable (in Colab, add it under Secrets) or pass email=."
+        )
+
+    Entrez.email = email
+    api_key = (api_key or os.environ.get("NCBI_API_KEY", "")).strip()
+    if api_key:
+        Entrez.api_key = api_key
+
+    handle = Entrez.esearch(
+        db="pubmed", term=query, retmax=max_records, sort="relevance"
+    )
+    try:
+        pmids = list(Entrez.read(handle)["IdList"])
+    finally:
+        handle.close()
+
+    if not pmids:
+        return []
+
+    handle = Entrez.efetch(
+        db="pubmed", id=pmids, rettype="abstract", retmode="xml"
+    )
+    try:
+        records = Entrez.read(handle)
+    finally:
+        handle.close()
+
+    return parse_pubmed_records(records)
+
+
+def parse_pubmed_records(records: Any) -> list[dict[str, str]]:
+    """Turn the output of Entrez.read(efetch(...)) into plain dictionaries."""
+    if "PubmedArticleSet" in records:
+        records = records["PubmedArticleSet"]
+
+    articles = records.get("PubmedArticle", [])
+    if isinstance(articles, dict):
+        articles = [articles]
+
+    documents = []
+
+    for article in articles:
+        citation = article["MedlineCitation"]
+        details = citation["Article"]
+
+        abstract_parts = details.get("Abstract", {}).get("AbstractText", [])
+        if isinstance(abstract_parts, (str, dict)):
+            abstract_parts = [abstract_parts]
+
+        abstract = " ".join(
+            str(part.get("content", "")) if isinstance(part, dict) else str(part)
+            for part in abstract_parts
+        ).strip()
+
+        title = details.get("ArticleTitle", "")
+        if isinstance(title, dict):
+            title = title.get("content", "")
+
+        documents.append(
+            {
+                "pmid": str(citation["PMID"]),
+                "title": str(title),
+                "abstract": abstract,
+            }
+        )
+
+    return documents
+
+
+def save_pubmed_data(
+    documents: list[dict[str, str]], filename: str | Path
+) -> Path:
+    """Save fetched records as the JSON file that load_pubmed_data reads."""
+    path = Path(filename)
+
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(documents, handle, indent=2)
+
+    return path
 
 
 def load_pubmed_data(filename: str | Path) -> list[dict[str, Any]]:
@@ -161,6 +267,8 @@ def search_vectors(
         {"score": float(similarities[i]), "doc": documents[int(i)]}
         for i in top_indices
     ]
+
+
 def reciprocal_rank_fusion(
     bm25_results: list[dict],
     vector_results: list[dict],

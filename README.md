@@ -19,30 +19,31 @@ The vector search operates on **the locally saved PubMed subset**, not on all of
 ```text
 .
 ├── README.md
-├── search_utils.py
+├── requirements.txt
+├── .env.example                 # environment variables to set (no values)
+├── search_utils.py              # fetch, BM25, vector search, RRF
 ├── pubmed_abstracts.json
 ├── day3_embeddings_<fingerprint>.npy
 ├── Week1_Day1_PubMed_Fetch.ipynb
 ├── Week1_Day2_Lexical_Search.ipynb
-├── Week1_Day3_vector_search.ipynb
-└── Week1_Day4_Hybrid_Search.ipynb
+├── Week1_Day3_Vector_Search.ipynb
+├── Week1_Day4_Hybrid_search.ipynb
+├── How_to_clone_Git_to_colab.ipynb
+└── archive/                     # superseded notebooks; do not run
 ```
 
 `pubmed_abstracts.json` is the saved input corpus. The `.npy` file contains precomputed document embeddings. Its rows must correspond to the JSON documents **in exactly the same order** and must have been generated using the model and text preparation documented below.
 
+The notebooks in `archive/` are kept for history only. They write an older version of `search_utils.py`, so running them would overwrite the current one.
+
 
 ## Run in Google Colab
 
-Open the notebooks in numerical order. In a fresh Colab runtime, install the dependencies used by the notebooks:
+Open the notebooks in numerical order. In a fresh Colab runtime, clone this repository and install its dependencies:
 
 ```python
-%pip -q install biopython rank-bm25 sentence-transformers numpy
-```
-
-Clone this repository, replacing the placeholders:
-
-```python
-!git clone [https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME.git](https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPOSITORY_NAME.git)
+!git clone https://github.com/Guliko24/PubMed_Fetch.git
+%pip -q install -r /content/PubMed_Fetch/requirements.txt
 ```
 
 Add the repository to Python's import path:
@@ -50,7 +51,7 @@ Add the repository to Python's import path:
 ```python
 import sys
 
-repo_dir = "/content/YOUR_REPOSITORY_NAME"
+repo_dir = "/content/PubMed_Fetch"
 sys.path.insert(0, repo_dir)
 
 import search_utils
@@ -61,6 +62,10 @@ The printed path should point to this repository's `search_utils.py`. If you upd
 
 Day 3 and Day 4 require `pubmed_abstracts.json` to be available at the path specified in those notebooks. Day 4 also requires the matching Day 3 embeddings file, unless you regenerate the document embeddings.
 
+### Settings for fetching from PubMed
+
+Only Day 1 contacts PubMed. NCBI requires a contact email, which the Day 1 notebook passes to `search_utils.fetch_pubmed(..., email=NCBI_EMAIL)`. If `email` is not passed, the function reads the `NCBI_EMAIL` environment variable instead. An optional `NCBI_API_KEY` raises the rate limit from 3 to 10 requests per second. `.env.example` lists both; never commit an API key.
+
 ## Methods
 
 ### BM25
@@ -69,9 +74,8 @@ BM25 ranks documents using query terms found in the indexed text. It provides a 
 
 ### Vector search
 
-The Day 3 notebook embeds the documents using `sentence-transformers/all-MiniLM-L6-v2`. It embeds the query with the same model and ranks documents by similarity.
- `title + abstract`
- 
+The Day 3 notebook embeds each document as its title and abstract joined into one text (`f"{title}. {abstract}"`) using `sentence-transformers/all-MiniLM-L6-v2`. It embeds the query with the same model and ranks documents by cosine similarity.
+
 Do not use an embeddings file created from a different document order, a different model, or a different choice of text fields.
 
 ### Hybrid search
