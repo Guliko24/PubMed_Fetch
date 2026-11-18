@@ -20,11 +20,48 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
 
 | Day | Deliverable | Status |
 |---|---|---|
-| 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | |
+| 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | Done: sketch and definitions below |
 | 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | Done 2026-11-18: passed in a fresh Colab runtime (invalid claims rejected; quote check True/False/False as expected) |
 | 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | |
 | 4 — Connect retrieval | `src/pubmed_fetch/extract.py` + `Week2_Day4_Extraction.ipynb` | |
 | 5 — Reliability | Pass/fail table; pytest passes; README updated | |
+
+### Day 1 — Architecture sketch
+
+Week 2 builds a **workflow**: the path is fixed in code, and the LLM is used inside one step.
+
+```
+query
+  │
+  ▼
+hybrid search             BM25 + vector + RRF (search_utils.py, Week 1)
+  │  top 3 results: {pmid, title, abstract}, one abstract at a time
+  ▼
+load_abstract             looks up the abstract for state["pmid"]          (Day 2, built)
+  │
+  ▼
+extract                   LLM with structured output → list[Claim]          (Day 3, planned)
+  │
+  ▼
+check_quotes              is each supporting_quote literally in the abstract? (Day 2, built)
+  │
+  ▼
+result                    AbstractExtraction(pmid, claims) + quote_found per claim
+```
+
+The PMID comes from the pipeline, not the LLM. `Claim` holds only what the model reads in the
+text (`cell_type`, `marker_genes`, `disease`, `claim_text`, `supporting_quote`).
+
+### Day 1 — Definitions, with examples from this project
+
+| Term | Definition | In PubMed_Fetch |
+|---|---|---|
+| State | The shared data passed through the graph; each node reads it and returns updates | `GraphState`: `pmid`, `claims`, `abstract`, `checked` |
+| Node | A function that takes the state and returns only the keys it changes | `check_quotes` returns `{"checked": [...]}` |
+| Edge | A connection that decides which node runs next; fixed or conditional | `load_abstract → check_quotes`, plus `START` and `END` |
+| Tool | A function an LLM can choose to call, with arguments it writes | None in Week 2; hybrid search could become one later |
+| Workflow | A graph whose path is fixed by code; an LLM may run inside a node | The Week 2 extraction graph |
+| Agent | An LLM that decides at run time which step or tool comes next, often in a loop | Not built in Week 2 |
 
 ## Notes
 
