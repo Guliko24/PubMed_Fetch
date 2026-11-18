@@ -21,7 +21,7 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
 | Day | Deliverable | Status |
 |---|---|---|
 | 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | |
-| 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | |
+| 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | In progress on `week2-day2-schemas`; Colab test pending |
 | 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | |
 | 4 — Connect retrieval | `src/pubmed_fetch/extract.py` + `Week2_Day4_Extraction.ipynb` | |
 | 5 — Reliability | Pass/fail table; pytest passes; README updated | |
