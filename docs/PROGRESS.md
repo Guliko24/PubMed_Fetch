@@ -21,7 +21,7 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
 | Day | Deliverable | Status |
 |---|---|---|
 | 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | |
-| 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | In progress on `week2-day2-schemas`; Colab test pending |
+| 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | Done 2026-11-18: passed in a fresh Colab runtime (invalid claims rejected; quote check True/False/False as expected) |
 | 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | |
 | 4 — Connect retrieval | `src/pubmed_fetch/extract.py` + `Week2_Day4_Extraction.ipynb` | |
 | 5 — Reliability | Pass/fail table; pytest passes; README updated | |
@@ -32,3 +32,8 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
   to import `pubmed_fetch`.
 - On Windows, two files whose names differ only in capitalisation collide. Keep file names
   unique regardless of case.
+- Colab setup cells: `/content` survives "Restart session". The Day 2 setup cell switches an
+  existing clone to `BRANCH` and prints the branch and commit; reuse it in new notebooks.
+- Day 5 edge-case ideas from Day 2: abstracts with HTML tags (`<b>Rationale:</b>`) may fail the
+  literal quote check; LLMs may return `""` instead of null; each marker gene should appear
+  in its supporting quote.
