@@ -4,7 +4,40 @@ The LLM fills in Claim objects only. The PMID is added by the pipeline,
 which already knows which abstract it sent, so the model cannot get it wrong.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+from pydantic.json_schema import SkipJsonSchema
+
+
+class MarkerGene(BaseModel):
+    """One marker named in the evidence, plus the gene symbol to match it on.
+
+    as_written must appear in the claim's supporting_quote (checked by
+    graph_basics.evidence_checks). gene_symbol is the HGNC symbol used for
+    matching in Week 3, e.g. "D1" (a receptor name) -> "DRD1".
+    symbol_status records whether code has checked gene_symbol against HGNC.
+    It is hidden from the LLM's schema, so the model cannot mark its own
+    mapping as verified.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    as_written: str = Field(
+        min_length=1,
+        description=(
+            "Gene, receptor, or marker label exactly as it appears in the "
+            "supporting quote, including capitalisation and hyphens."
+        ),
+    )
+    gene_symbol: str | None = Field(
+        default=None,
+        description=(
+            "Official HGNC gene symbol for the as_written name "
+            "(for example, D1 -> DRD1); use null if not certain."
+        ),
+    )
+    symbol_status: SkipJsonSchema[Literal["unverified", "verified"]] = "unverified"
 
 
 class Claim(BaseModel):
@@ -20,11 +53,11 @@ class Claim(BaseModel):
         default=None,
         description="One cell type explicitly named in this claim's evidence; otherwise null.",
     )
-    marker_genes: list[str] = Field(
+    marker_genes: list[MarkerGene] = Field(
         default_factory=list,
         description=(
-            "Marker gene symbols explicitly linked to this cell type in the evidence; "
-            "preserve source spelling. Empty if absent."
+            "Genes or receptors whose expression the evidence explicitly uses to define, "
+            "identify or distinguish this cell type or subtype. Empty if absent."
         ),
     )
     disease: str | None = Field(
