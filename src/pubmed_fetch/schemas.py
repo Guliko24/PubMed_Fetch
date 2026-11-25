@@ -44,6 +44,17 @@ class Claim(BaseModel):
     )
 
 
+class ExtractedClaims(BaseModel):
+    """What the LLM returns for one abstract: claims only, no PMID."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claims: list[Claim] = Field(
+        default_factory=list,
+        description="Every claim the abstract states; an empty list if it states none.",
+    )
+
+
 class AbstractExtraction(BaseModel):
     """All claims extracted from one abstract (empty if it states none)."""
 

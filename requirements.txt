@@ -1,6 +1,8 @@
 biopython==1.88
 rank-bm25==0.2.2
 langgraph==1.2.18
+langchain-google-genai==4.4.3
+python-dotenv==1.2.4
 # Colab preinstalls these; ranges avoid replacing its torch/transformers builds.
 # Once a run works, record the exact versions with `pip show` and pin them here.
 sentence-transformers>=3.0,<7
