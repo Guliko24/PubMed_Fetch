@@ -22,7 +22,7 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
 |---|---|---|
 | 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | Done: sketch and definitions below |
 | 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | Done 2026-11-18: passed in a fresh Colab runtime (invalid claims rejected; quote check True/False/False as expected) |
-| 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | Done 2026-11-25 with `gemini-3.6-flash`: one Colab run, all outputs schema-valid, 9/9 quotes found, 0 claims for a text with no cell types. Observations below |
+| 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | First run 2026-11-25 (`gemini-3.6-flash`): schema-valid output with exact quotes on the tested abstracts, but claim support and granularity need revision before results can be trusted. Revision in progress on `week2-day3-fixes` |
 | 4 — Connect retrieval | `src/pubmed_fetch/extract.py` + `Week2_Day4_Extraction.ipynb` | |
 | 5 — Reliability | Pass/fail table; pytest passes; README updated | |
 
@@ -39,9 +39,34 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
   in one `cell_type` despite "keep separate populations separate".
 - Not exercised: no quote crossed a `<b>` tag, so the "copy markup" rule is still untested.
 - `marker_genes` is empty because the rules only accept genes the evidence calls *markers*;
-  decide on Day 5 whether "D1-expressing" should count.
+  decide on Day 5 whether "D1-expressing" should count. (Decided below.)
 - Colab: `google-auth` version warning is expected (see requirements.txt); after changing
   `BRANCH` or requirements, use "Disconnect and delete runtime", not "Restart session".
+- A second review found the main gap: **a quote being in the abstract does not show that it
+  supports the claim** (e.g. "following hypoxia-reoxygenation" is not in its quote; pericyte
+  and fibroblast claims are stronger than the grouped sentence they came from).
+
+### Day 3 — Decisions (2026-11-25)
+
+- **Evidence:** a claim's evidence is its `supporting_quote`. Its cell type, disease and marker
+  names must appear in the quote; a disease named only elsewhere in the abstract is null.
+- **Grouped cell types:** split them, one claim per named cell type, but each claim states only
+  what the quote says about the group, never more strongly.
+- **"Characterized" / "identified":** a claim only when the evidence also states what was found
+  (marker genes or a new property).
+- **Marker gene:** a gene or receptor whose expression the evidence explicitly uses to define,
+  identify or distinguish a cell type or subtype (so "D1-expressing MSNs" counts).
+  `MarkerGene(as_written="D1", gene_symbol="DRD1")`: `as_written` is copied from the quote;
+  `gene_symbol` is the HGNC symbol the LLM maps it to (null if not certain), because receptor
+  names will not match in Week 3. `gene_symbol` is the one place the model may use outside
+  knowledge and no quote can verify it, so it must be checked against HGNC before Week 3
+  relies on it. `symbol_status` (`unverified` / `verified`) records that check; it is hidden
+  from the LLM's schema and only code sets it to `verified`. (Considered and set aside for
+  now: code-filled symbols with an `ontology_status` field.)
+- **Checks:** automatic checks are literal (quote in abstract; names in quote). Support for
+  the claim is judged by hand: `accepted`, `needs_review` or `rejected` per claim.
+- **Run records:** every run is saved as its own JSON file (model, time, commit, packages,
+  prompt, inputs, claims, checks, review) and never overwritten.
 
 ### Day 1 — Architecture sketch
 
