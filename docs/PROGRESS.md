@@ -22,9 +22,26 @@ Built with LangGraph. New habit: code lives in a `src/pubmed_fetch/` package, no
 |---|---|---|
 | 1 — Foundations | Architecture sketch; can define state, node, edge, tool, workflow, agent | Done: sketch and definitions below |
 | 2 — State and schemas | `Week2_Day2_Graph_Basics.ipynb`; claim schema in `src/pubmed_fetch/schemas.py` | Done 2026-11-18: passed in a fresh Colab runtime (invalid claims rejected; quote check True/False/False as expected) |
-| 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | |
+| 3 — Structured extraction | One abstract yields schema-valid claims; missing items are not guessed | Done 2026-11-25 with `gemini-3.6-flash`: one Colab run, all outputs schema-valid, 9/9 quotes found, 0 claims for a text with no cell types. Observations below |
 | 4 — Connect retrieval | `src/pubmed_fetch/extract.py` + `Week2_Day4_Extraction.ipynb` | |
 | 5 — Reliability | Pass/fail table; pytest passes; README updated | |
+
+### Day 3 — Observations from one run (not measured accuracy)
+
+| Abstract | Claims | Quotes found | Notes |
+|---|---|---|---|
+| PMID 34582785 (brain reward circuitry) | 4 | 4/4 | `marker_genes` empty in all claims; claim 4 puts "D1- and D2-expressing MSNs" in one `cell_type` |
+| PMID 40585969 (hypoxia organoids, has `<b>` tags) | 5 | 5/5 | `disease: fetal hypoxia` in all 5 claims, but none of the quotes mention it |
+| Made-up text naming no cell type | 0 | — | Expected 0 |
+
+- `gemini-3.6-flash` ignores `temperature` (fixed sampling defaults), so runs may vary.
+- Rule breaks to test on Day 5: disease taken from outside the quote; two populations merged
+  in one `cell_type` despite "keep separate populations separate".
+- Not exercised: no quote crossed a `<b>` tag, so the "copy markup" rule is still untested.
+- `marker_genes` is empty because the rules only accept genes the evidence calls *markers*;
+  decide on Day 5 whether "D1-expressing" should count.
+- Colab: `google-auth` version warning is expected (see requirements.txt); after changing
+  `BRANCH` or requirements, use "Disconnect and delete runtime", not "Restart session".
 
 ### Day 1 — Architecture sketch
 

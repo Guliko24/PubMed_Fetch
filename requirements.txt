@@ -1,6 +1,12 @@
 biopython==1.88
 rank-bm25==0.2.2
 langgraph==1.2.18
+langchain-google-genai==4.4.3
+# Below 3 to keep Colab's preinstalled google-adk working. Every google-genai that
+# langchain-google-genai 4.4 accepts needs google-auth>=2.56, so pip still warns that
+# google-colab wants google-auth==2.49.0; Colab Secrets do not use google-auth.
+google-genai==2.33.0
+python-dotenv==1.2.4
 # Colab preinstalls these; ranges avoid replacing its torch/transformers builds.
 # Once a run works, record the exact versions with `pip show` and pin them here.
 sentence-transformers>=3.0,<7
